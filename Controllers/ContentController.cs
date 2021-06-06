@@ -7,6 +7,11 @@ using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
+using System.Net.WebSockets;
+using System.Text;
+using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace ChirpServer.Controllers
@@ -42,20 +47,66 @@ namespace ChirpServer.Controllers
                     return Ok(new { message = "Message exceeds max length" });
                 }
 
-                var message = new MessageModel
-                {
-                    userName = messanger,
-                    message = dto.messageText
-                };
-
                 sql = "insert into messages (username, message) values (@username, @message)";
-                await _data.SaveData(sql, new { username = message.userName, message = message.message }, _config.GetConnectionString("default"));
+                await _data.SaveData(sql, new { username = messanger, message = dto.messageText }, _config.GetConnectionString("default"));
 
-                return Ok(message);
+                return Ok();
             }
             catch (Exception e)
             {
                 return Unauthorized();
+            }
+        }
+
+        [HttpGet(template: "fullfeed")]
+        public async Task<IActionResult> GetFeed(string username)
+        {
+            var jwt = Request.Cookies["jwt"];
+
+            var token = _jwtService.Verify(jwt);
+            int userId = int.Parse(token.Issuer);
+
+            List<MessageModel> feed;
+            string searchPattern = "'" + username + "%'";
+            var sql = "select * from messages where username like " + searchPattern + " order by datecreated desc";
+            feed = await _data.LoadData<MessageModel, dynamic>(sql, new { }, _config.GetConnectionString("default"));
+            return Ok(feed);
+        }
+
+        [HttpGet(template: "partfeed")]
+        public async Task<IActionResult> GetMyFeed()
+        {
+            if (HttpContext.WebSockets.IsWebSocketRequest)
+            {
+                var ws = new WebSocketConnection(await HttpContext.WebSockets.AcceptWebSocketAsync());
+
+                List<MessageModel> feed;
+
+                try
+                {
+                    while (true)
+                    {
+                        var username = await ws.ReceiveString();
+                        var searchPattern = "'" + username + "%'";
+                        var query = @"select f.followed, m.message
+                        from followers f
+                        join messages m on f.followed = m.username
+                        where f.follower like " + searchPattern + " order by datecreated desc";
+                        feed = await _data.LoadData<MessageModel, dynamic>(query, new { }, _config.GetConnectionString("default"));
+                        await ws.SendObject(feed);
+                    }
+                }
+                catch (WebSocketException) {}
+                finally
+                {
+                    await ws.Close();
+                }
+
+                return new EmptyResult();
+            }
+            else
+            {
+                return new StatusCodeResult((int)HttpStatusCode.BadRequest);
             }
         }
     }
