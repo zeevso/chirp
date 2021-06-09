@@ -6,5 +6,6 @@ namespace ChirpServer.Helpers
     {
         string generateToken(int userId);
         JwtSecurityToken Verify(string jwt);
+        int WrapJWTSecurityToken(string jwt);
     }
 }

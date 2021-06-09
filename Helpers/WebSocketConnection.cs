@@ -1,4 +1,6 @@
-﻿using System;
+﻿// 05.06.21 Ze'ev
+// Routines to implement the basics of communication over WebSockets
+using System;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;

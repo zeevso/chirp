@@ -1,4 +1,6 @@
-﻿using Microsoft.IdentityModel.Tokens;
+﻿// 03.06.21 Ze'ev
+// Handling JWT implementation
+using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
@@ -35,6 +37,12 @@ namespace ChirpServer.Helpers
                 }, 
                 out SecurityToken validatedToken);
             return (JwtSecurityToken)validatedToken;
+        }
+
+        public int WrapJWTSecurityToken(string jwt)
+        {
+            var token = Verify(jwt);
+            return int.Parse(token.Issuer);
         }
     }
 }

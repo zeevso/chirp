@@ -1,11 +1,12 @@
 ﻿using ChirpServer.DTO;
 using ChirpServer.Helpers;
+using ChirpServer.Models;
 using DataLibrary;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace ChirpServer.Controllers
@@ -17,12 +18,14 @@ namespace ChirpServer.Controllers
         private readonly IDataAccess _data;
         private readonly IConfiguration _config;
         private readonly IJwtService _jwtService;
+        private readonly ILogger<UsersController> _logger;
 
-        public UsersController(IDataAccess data, IConfiguration config, IJwtService jwtService)
+        public UsersController(IDataAccess data, IConfiguration config, IJwtService jwtService, ILogger<UsersController> logger)
         {
             _data = data;
             _config = config;
             _jwtService = jwtService;
+            _logger = logger;
         }
 
         [HttpPost(template: "follow")]
@@ -31,20 +34,26 @@ namespace ChirpServer.Controllers
             try
             {
                 var jwt = Request.Cookies["jwt"];
+                int userId = _jwtService.WrapJWTSecurityToken(jwt);
 
-                var token = _jwtService.Verify(jwt);
-                int userId = int.Parse(token.Issuer);
+                var follower = await _data.LoadDataObject<string, dynamic>("select name from user where id = @id",
+                    new { id = userId }, _config.GetConnectionString("default"));            
+                
+                if (follower == dto.FollowedName)
+                {
+                    _logger.LogWarning("Curios, user wants to follow himself. Check!");
+                    return BadRequest(error: new { message = "User cannot follow himself" });
+                }
 
-                string sql = "select name from user where id = @id";
-                var follower = await _data.LoadDataObject<string, dynamic>(sql, new { id = userId }, _config.GetConnectionString("default"));
-
-                sql = "insert into followers (follower, followed) values (@follower, @followed)";
+                string sql = "insert into followers (follower, followed) values (@follower, @followed)";
                 await _data.SaveData(sql, new { follower = follower, followed = dto.FollowedName }, _config.GetConnectionString("default"));
 
+                _logger.LogInformation("Following OK!");
                 return Ok();
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
+                _logger.LogWarning(ex, "The unathorised user tried to enter! Code: {Code}", " 401");
                 return Unauthorized();
             }  
         }
@@ -55,20 +64,69 @@ namespace ChirpServer.Controllers
             try
             {
                 var jwt = Request.Cookies["jwt"];
+                int userId = _jwtService.WrapJWTSecurityToken(jwt);
 
-                var token = _jwtService.Verify(jwt);
-                int userId = int.Parse(token.Issuer);
+                var follower = await _data.LoadDataObject<string, dynamic>("select name from user where id = @id",
+                    new { id = userId }, _config.GetConnectionString("default"));
 
-                string sql = "select name from user where id = @id";
-                var follower = await _data.LoadDataObject<string, dynamic>(sql, new { id = userId }, _config.GetConnectionString("default"));
-
-                sql = "delete from followers where (follower = @follower and followed = @followed)";
+                var sql = "delete from followers where (follower = @follower and followed = @followed)";
                 await _data.SaveData(sql, new { follower = follower, followed = dto.FollowedName }, _config.GetConnectionString("default"));
 
+                _logger.LogInformation("Unfollowing OK!");
                 return Ok();
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
+                _logger.LogWarning(ex, "The unathorised user tried to enter! Code: {Code}", " 401");
+                return Unauthorized();
+            }
+        }
+
+        [HttpGet(template: "users")]
+        public async Task<IActionResult> GetUsersExceptAuthenticated()
+        {
+            List<PartUser> users;
+
+            try
+            {
+                var jwt = Request.Cookies["jwt"];
+                int userId = _jwtService.WrapJWTSecurityToken(jwt);
+
+                // Fetch all users except one that maked a request
+                var sql = "select id, name from user where (id != @id)";
+                users = await _data.LoadData<PartUser, dynamic>(sql, new { id = userId }, _config.GetConnectionString("default"));
+
+                return Ok(users);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "The unathorised user tried to enter! Code: {Code}", " 401");
+                return Unauthorized();
+            }
+        }
+
+        // Get the list of all followed by the specific user
+        [HttpGet(template: "followed")]
+        public async Task<IActionResult> GetFollowed()
+        {
+            List<FollowedModel> followed;
+
+            try
+            {
+                var jwt = Request.Cookies["jwt"];
+                int userId = _jwtService.WrapJWTSecurityToken(jwt);
+
+                var follower = await _data.LoadDataObject<string, dynamic>("select name from user where id = @id",
+                    new { id = userId }, _config.GetConnectionString("default"));
+
+                var sql = "select followed from followers where (follower = @follower)";
+                followed = await _data.LoadData<FollowedModel, dynamic>(sql, new { follower = @follower}, _config.GetConnectionString("default"));               
+
+                return Ok(followed);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "The unathorised user tried to enter! Code: {Code}", " 401");
                 return Unauthorized();
             }
         }
