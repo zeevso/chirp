@@ -43,7 +43,7 @@ namespace ChirpServer
             app.UseRouting();
 
             app.UseCors(options => options
-                .WithOrigins(new[] { "http://localhost:8080" })
+                .SetIsOriginAllowed(isOriginAllowed: _ => true)
                 .AllowAnyHeader()
                 .AllowAnyMethod()
                 .AllowCredentials()
