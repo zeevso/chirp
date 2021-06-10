@@ -5,7 +5,7 @@ VisualStudioVersion = 16.0.31321.278
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ChirpServer", "ChirpServer.csproj", "{B5DD5041-049F-4995-8B30-F6A8CC23A005}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataLibrary", "..\DataLibrary\DataLibrary.csproj", "{E27714F1-31C2-46A1-B626-D160634EF692}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataLibrary", "DataLibrary\DataLibrary.csproj", "{E27714F1-31C2-46A1-B626-D160634EF692}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
