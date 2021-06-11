@@ -40,14 +40,14 @@ namespace ChirpServer
 
             app.UseFileServer();
 
-            app.UseRouting();
-
             app.UseCors(options => options
-                .SetIsOriginAllowed(isOriginAllowed: _ => true)
+                .WithOrigins("http://website", "ws://website")
                 .AllowAnyHeader()
                 .AllowAnyMethod()
                 .AllowCredentials()
             );
+
+            app.UseRouting();
 
             app.UseAuthorization();
 
